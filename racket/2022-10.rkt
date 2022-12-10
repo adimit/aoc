@@ -1,4 +1,4 @@
-#lang racket
+#lang slideshow
 
 (define sample "noop
 addx 3
@@ -184,8 +184,8 @@ noop")
   (let ([l (execute-instructions str)])
          (map (lambda (x i)
                 (if ((abs (- (modulo i 40) x)) . <= . 1)
-                    #\#
-                    #\.))
+                    (colorize (filled-rectangle 18 20) "white")
+                    (colorize (filled-rectangle 18 20) "black")))
               l
               (range 0 (length l)))))
 
@@ -193,6 +193,14 @@ noop")
   (define (render-screen l result)
     (if (>= (length l) 40)
         (let-values ([(line r) (split-at l 40)])
-          (render-screen r (cons (list->string line) result)))
+          (render-screen r (cons (apply hc-append line) result)))
         (reverse result)))
-  (render-screen (compute-pixels str) '()))
+  (apply vc-append (render-screen (compute-pixels str) '())))
+
+
+(require pict)
+(define (save-pict the-pict name kind)
+  (define bm (pict->bitmap the-pict))
+  (send bm save-file name kind))
+(save-pict (run-task-2 large-sample) "sample.png" 'png)
+(save-pict (run-task-2 (file->string "input-10")) "solution.png" 'png)
