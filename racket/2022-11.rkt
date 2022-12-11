@@ -64,8 +64,8 @@ Monkey 3:
 (define (string->monkeys str)
   (map string->monkey (string-split str "\n\n")))
 
-(define (monkey-move item player monkeys)
-  (let* ([new-item ((monkey-op player) item)]
+(define (monkey-move item player monkeys flipover)
+  (let* ([new-item (modulo ((monkey-op player) item) flipover)]
          [target-index (if ((divisible-by (monkey-test player)) new-item)
                                   (monkey-if-true player)
                                   (monkey-if-false player))]
@@ -80,33 +80,33 @@ Monkey 3:
                   [items (cdr (monkey-items player))]
                   [peeks (+ 1 (monkey-peeks player))]))))
 
-(define (monkey-turn player monkeys)
+(define (monkey-turn player monkeys flipover)
   (foldl
    (lambda (item acc-monkeys)
-     (monkey-move item (list-ref acc-monkeys (monkey-index player)) acc-monkeys))
+     (monkey-move item (list-ref acc-monkeys (monkey-index player)) acc-monkeys flipover))
    monkeys
    (monkey-items player)))
 
-(define (monkey-round monkeys)
+(define (monkey-round monkeys flipover)
   (foldl
    (lambda (player-index acc-monkeys)
-     (monkey-turn (list-ref acc-monkeys player-index) acc-monkeys))
+     (monkey-turn (list-ref acc-monkeys player-index) acc-monkeys flipover))
    monkeys
    (range 0 (length monkeys))))
 
 (define (play rounds monkeys)
-  (foldl
-   (lambda (r acc)
-     (monkey-round acc))
-   monkeys
-   (range 0 rounds)))
+  (let ([flipover (apply lcm (map monkey-test monkeys))])
+    (foldl
+     (lambda (r acc)
+       (monkey-round acc flipover))
+     monkeys
+     (range 0 rounds))))
 
-(define (run-task str)
+(define (run-task str rounds)
   (let ([monkeys (string->monkeys str)])
-    (apply * (take (sort (map monkey-peeks (play 20 monkeys)) >) 2))))
+    (apply * (take (sort (map monkey-peeks (play rounds monkeys)) >) 2))))
 
-(check-equal? (run-task (file->string "input-11")) 54240)
+(check-equal? (run-task (file->string "input-11") 20) 54240)
 
-; todo: refactor so that division happens during playtime, monkeys just have a divisible by n instead of a procedure
-; before playing, find the lcm of all monkey divisors
-; after applying op, the new number is (min result (- result lcm))
+; (run-task (file->string "input-11") 10000)
+
