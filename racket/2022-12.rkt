@@ -115,31 +115,44 @@ abdefghi")
 
 (struct data (dist prev) #:transparent)
 
-(define (dijkstra terrain)
-  (let* ([from (index-of (terrain-vertices terrain) (char->integer #\S))]
-         [goal (index-of (terrain-vertices terrain) (char->integer #\E))]
-         [dist (list-set (make-list (length (terrain-vertices terrain)) +inf.0) from 0)]
-         [prev (make-list (length (terrain-vertices terrain)) #f)]
+(define (dijkstra terrain from)
+  (let* ([dist (make-vector (length (terrain-vertices terrain)) +inf.0)]
+         [prev (make-vector (length (terrain-vertices terrain)) #f)]
          [queue (range 0 (length (terrain-vertices terrain)))])
-    (define (loop queue dist prev)
+    (vector-set! dist from 0)
+    (define (loop queue)
       (if (null? queue) (data dist prev)
-          (match-let* ([u (argmin (curry list-ref dist) queue)]
-                       [new-queue (remove u queue)]
-                       [(data new-dist new-prev)
-                        (foldl
-                         (lambda (v d)
-                           (let ([alt (+ 1 (list-ref (data-dist d) u))])
-                             (if (< alt (list-ref (data-dist d) v))
-                                 (data (list-set (data-dist d) v alt) (list-set (data-prev d) v u))
-                                 d)))
-                         (data dist prev)
-                         (filter (curryr member queue) (find-neighbours terrain u)))])
-            (loop new-queue new-dist new-prev))))
-    (list-ref (data-dist (loop queue dist prev)) goal)))
+          (let* ([u (argmin (curry vector-ref dist) queue)]
+                 [new-queue (remove u queue)])
+            (for ([v (filter (curryr member queue) (find-neighbours terrain u))])
+              (let ([alt (+ 1 (vector-ref dist u))])
+                (when (< alt (vector-ref dist v))
+                  (begin
+                    (vector-set! prev v u)
+                    (vector-set! dist v alt)
+                    (data dist prev)))))
+            (loop new-queue))))
+    (loop queue)))
 
-(time (dijkstra (string->terrain2 (file->string "input-12"))))
-(check-equal? (dijkstra (string->terrain2 sample)) 31)
+(define (run-task str)
+  (let* ([t (string->terrain2 str)]
+         [start (index-of (terrain-vertices t) (char->integer #\S))]
+         [goal (index-of (terrain-vertices t) (char->integer #\E))])
+    (vector-ref (data-dist (dijkstra t start)) goal)))
 
+(define (run-task-2 str)
+  (let* ([t (string->terrain2 str)]
+         [goal (index-of (terrain-vertices t) (char->integer #\E))]
+         [starting-points (filter-map
+                           (lambda (h i) (if (or (eq? h (char->integer #\a))
+                                                 (eq? h (char->integer #\S))) i #f))
+                           (terrain-vertices t)
+                           (range 0 (length (terrain-vertices t))))])
+    (apply min (map (compose (curryr vector-ref goal) data-dist (curry dijkstra t))
+                    starting-points))))
+
+(check-equal? (run-task sample) 31)
+(check-equal? (run-task-2 sample) 29)
 
 (define (vertex-height-colour v)
   (match v
@@ -162,9 +175,4 @@ abdefghi")
   (apply vc-append (draw-line (terrain-vertices terrain) '())))
 
 ; (draw-terrain (string->terrain2 (file->string "input-12")) vertex-height-colour)
-
-(define (run-task str)
-  (let* ([terrain (string->terrain str)]
-         [start (find-start terrain)])
-    (length (rest (find-path start terrain)))))
 
